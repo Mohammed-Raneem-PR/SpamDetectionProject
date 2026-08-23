@@ -6,6 +6,7 @@ from typing import Optional
 import os
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 import random
 import time
 import smtplib
@@ -13,6 +14,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from fastapi import Body
 from database import get_connection
+
+load_dotenv(Path(__file__).with_name(".env"))
 
 try:
     from PIL import Image, UnidentifiedImageError
@@ -100,12 +103,24 @@ class UpdateProfile(BaseModel):
 
 @app.post("/send-otp")
 def send_otp(data: OTPRequest):
+    now = time.time()
+    previous_otp = otp_store.get(data.email)
+    if previous_otp:
+        seconds_since_last_send = now - previous_otp.get("last_sent", 0)
+        if seconds_since_last_send < 30:
+            remaining_seconds = max(1, int(30 - seconds_since_last_send))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Please wait {remaining_seconds} seconds before requesting another OTP."
+            )
+
     otp = str(random.randint(100000, 999999))
-    expiration = time.time() + 300  # 5 minutes expiration
+    expiration = now + 300  # 5 minutes expiration
     
     otp_store[data.email] = {
         "otp": otp,
-        "expires": expiration
+        "expires": expiration,
+        "last_sent": now,
     }
     
     # Remove from verified set when sending new OTP
@@ -123,7 +138,8 @@ def send_otp(data: OTPRequest):
         
         return {
             "message": "OTP sent to your email",
-            "expires_in_seconds": 300
+            "expires_in_seconds": 300,
+            "resend_available_in_seconds": 30
         }
     else:
         # If email fails, still store OTP and show console
@@ -133,7 +149,8 @@ def send_otp(data: OTPRequest):
         
         return {
             "message": "OTP generated (email service unavailable - check console)",
-            "expires_in_seconds": 300
+            "expires_in_seconds": 300,
+            "resend_available_in_seconds": 30
         }
 class VerifyOTP(BaseModel):
     email: str

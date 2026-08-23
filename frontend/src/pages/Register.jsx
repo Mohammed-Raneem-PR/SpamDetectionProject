@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -12,6 +12,7 @@ export default function Register() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpStatus, setOtpStatus] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const [fullName, setFullName] = useState("");
   const [username, setUsername] =useState("");
@@ -20,6 +21,16 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleRegister = async () => {
 
@@ -120,6 +131,7 @@ export default function Register() {
 
       setOtpSent(true);
       setOtpStatus("OTP generated. Enter the six-digit code below, then verify it.");
+      setResendCooldown(response.data.resend_available_in_seconds || 30);
 
     } catch (error) {
 
@@ -226,14 +238,20 @@ export default function Register() {
         <button
           type="button"
           onClick={handleSendOTP}
-          disabled={otpVerified}
+          disabled={otpVerified || resendCooldown > 0}
           className={`w-full p-3 rounded-lg mb-3 text-white font-semibold ${
-            otpVerified
+            otpVerified || resendCooldown > 0
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
-          {otpVerified ? "✓ Email Verified" : "Send OTP to Email"}
+          {otpVerified
+            ? "✓ Email Verified"
+            : resendCooldown > 0
+              ? `Resend OTP in ${resendCooldown}s`
+              : otpSent
+                ? "Resend OTP"
+                : "Send OTP to Email"}
         </button>
 
         {otpStatus && <p className="text-sm text-blue-700 mb-3">{otpStatus}</p>}
