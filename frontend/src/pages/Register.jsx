@@ -11,6 +11,7 @@ export default function Register() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [otpStatus, setOtpStatus] = useState("");
 
   const [fullName, setFullName] = useState("");
   const [username, setUsername] =useState("");
@@ -118,11 +119,13 @@ export default function Register() {
       toast.success(response.data.message);
 
       setOtpSent(true);
+      setOtpStatus("OTP generated. Enter the six-digit code below, then verify it.");
 
     } catch (error) {
 
       console.log(error);
 
+      setOtpStatus("Could not generate an OTP. Please try again.");
       toast.error("Failed to Send OTP");
 
     }
@@ -233,28 +236,30 @@ export default function Register() {
           {otpVerified ? "✓ Email Verified" : "Send OTP to Email"}
         </button>
 
-        {otpSent && (
-          <>
-            <input
-              type="text"
-              placeholder="Enter OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              className="w-full border rounded-lg p-3 mb-3"
-            />
-            <p className="text-sm text-gray-600 mb-2">OTP expires in 5 minutes</p>
-          </>
-        )}
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength="6"
+          placeholder="Enter OTP"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+          className="w-full border rounded-lg p-3 mb-2"
+        />
+        <p className="text-sm text-gray-600 mb-2">OTP expires in 5 minutes</p>
+        {otpStatus && <p className="text-sm text-blue-700 mb-3">{otpStatus}</p>}
 
-        {otpSent && !otpVerified && (
-          <button
-            type="button"
-            onClick={handleVerifyOTP}
-            className="w-full bg-green-600 text-white p-3 rounded-lg mb-3"
-          >
-            Verify OTP
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleVerifyOTP}
+          disabled={!otpSent || otpVerified}
+          className={`w-full p-3 rounded-lg mb-3 text-white font-semibold ${
+            otpSent && !otpVerified
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-gray-400 cursor-not-allowed"
+          }`}
+        >
+          Verify OTP
+        </button>
 
         <input
           type="text"
