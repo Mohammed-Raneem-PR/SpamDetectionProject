@@ -1,6 +1,11 @@
+import os
 import sqlite3
+from pathlib import Path
 
-DATABASE = "spam_detection.db"
+DATABASE = os.getenv(
+    "DATABASE_PATH",
+    str(Path(__file__).resolve().parent / "spam_detection.db"),
+)
 def get_connection():
     return sqlite3.connect(DATABASE)
 

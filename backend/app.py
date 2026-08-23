@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 import joblib
 from io import BytesIO
 from typing import Optional
+import os
+from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 import random
 import time
@@ -44,12 +46,15 @@ app = FastAPI(title="Spam Detection API")
 otp_store = {}  # Format: {email: {"otp": "123456", "expires": timestamp}}
 verified_emails = set()  # Track verified email addresses
 
-# Gmail Configuration (Update with your credentials)
-GMAIL_EMAIL = "aispamdetection@gmail.com"
+# Email credentials are configured in the deployment environment, never in Git.
+GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
 GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD", "")
 
 def send_otp_email(email: str, otp: str) -> bool:
     """Send OTP to email via Gmail"""
+    if not GMAIL_EMAIL or not GMAIL_PASSWORD:
+        print("Email is not configured. Set GMAIL_EMAIL and GMAIL_PASSWORD.")
+        return False
     try:
         msg = MIMEMultipart()
         msg["From"] = GMAIL_EMAIL
@@ -165,20 +170,30 @@ def verify_otp(data: VerifyOTP):
         "verified": False,
         "error": "Invalid OTP. Please try again."
     }
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=allowed_origins,
     # Permit the Vite development server when it is opened from a phone on
     # the same private Wi-Fi network.
-    allow_origin_regex=r"^http://(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3})(:\d+)?$",
+    allow_origin_regex=r"^(http://(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3})(:\d+)?|https://[a-z0-9-]+\.vercel\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Load ML Model
-model = joblib.load("../model/spam_model.pkl")
-vectorizer = joblib.load("../model/vectorizer.pkl")
+MODEL_DIR = Path(__file__).resolve().parent.parent / "model"
+model = joblib.load(MODEL_DIR / "spam_model.pkl")
+vectorizer = joblib.load(MODEL_DIR / "vectorizer.pkl")
 
 
 INSTITUTIONAL_SIGNALS = {
