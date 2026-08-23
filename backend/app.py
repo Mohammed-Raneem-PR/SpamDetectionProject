@@ -31,6 +31,7 @@ from database import (
     save_prediction,
     get_prediction_history,
     create_users_table,
+    ensure_demo_user,
     register_user,
     login_user,
     get_dashboard_stats,
@@ -87,6 +88,7 @@ def send_otp_email(email: str, otp: str) -> bool:
 
 create_database()
 create_users_table()
+ensure_demo_user()
 class OTPRequest(BaseModel):
     email: str
 class UpdateProfile(BaseModel):

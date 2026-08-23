@@ -152,6 +152,29 @@ def create_users_table():
 
     conn.commit()
     conn.close()
+
+
+def ensure_demo_user():
+    """Create a predictable user account for demonstrations if it is absent."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO users
+        (full_name, username, email, password, phone, city)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "Demo User",
+            "demo_user",
+            "demo.user@example.com",
+            "demo123",
+            "9999999999",
+            "Demo City",
+        ),
+    )
+    conn.commit()
+    conn.close()
 def register_user(
     full_name,
     username,
