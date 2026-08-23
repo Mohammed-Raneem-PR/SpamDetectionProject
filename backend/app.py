@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, UploadFile, File, HTTPException, Query
 from pydantic import BaseModel, Field
 import joblib
 from io import BytesIO
@@ -80,7 +80,7 @@ def send_otp_email(email: str, otp: str) -> bool:
         
         msg.attach(MIMEText(body, "html"))
         
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
             server.login(GMAIL_EMAIL, GMAIL_PASSWORD)
             server.sendmail(GMAIL_EMAIL, email, msg.as_string())
         
@@ -88,6 +88,14 @@ def send_otp_email(email: str, otp: str) -> bool:
     except Exception as e:
         print(f"❌ Email Error: {e}")
         return False
+
+
+def deliver_otp_email(email: str, otp: str) -> None:
+    """Send the email after the API response so the registration UI is immediate."""
+    if send_otp_email(email, otp):
+        print(f"\n✅ OTP Sent Successfully\nEmail: {email}\nExpires in: 5 minutes\n")
+    else:
+        print(f"\n⚠️  Email failed - Using console fallback\nDemo OTP: {otp}\nEmail: {email}\n")
 
 create_database()
 create_users_table()
@@ -102,7 +110,7 @@ class UpdateProfile(BaseModel):
     city: str
 
 @app.post("/send-otp")
-def send_otp(data: OTPRequest):
+def send_otp(data: OTPRequest, background_tasks: BackgroundTasks):
     now = time.time()
     previous_otp = otp_store.get(data.email)
     if previous_otp:
@@ -127,31 +135,12 @@ def send_otp(data: OTPRequest):
     if data.email in verified_emails:
         verified_emails.discard(data.email)
     
-    # Send OTP via email
-    email_sent = send_otp_email(data.email, otp)
-    
-    if email_sent:
-        print("\n✅ OTP Sent Successfully")
-        print(f"Email: {data.email}")
-        print(f"OTP: {otp}")
-        print(f"Expires in: 5 minutes\n")
-        
-        return {
-            "message": "OTP sent to your email",
-            "expires_in_seconds": 300,
-            "resend_available_in_seconds": 30
-        }
-    else:
-        # If email fails, still store OTP and show console
-        print(f"\n⚠️  Email failed - Using console fallback")
-        print(f"Demo OTP: {otp}")
-        print(f"Email: {data.email}\n")
-        
-        return {
-            "message": "OTP generated (email service unavailable - check console)",
-            "expires_in_seconds": 300,
-            "resend_available_in_seconds": 30
-        }
+    background_tasks.add_task(deliver_otp_email, data.email, otp)
+    return {
+        "message": "OTP is being sent to your email.",
+        "expires_in_seconds": 300,
+        "resend_available_in_seconds": 30
+    }
 class VerifyOTP(BaseModel):
     email: str
     otp: str
