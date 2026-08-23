@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import API from "../config/api";
 
 export default function Dashboard() {
+  const user = JSON.parse(localStorage.getItem("user"));
   const [stats, setStats] = useState({
     total_users: 0,
     total_tweets: 0,
@@ -20,7 +21,8 @@ export default function Dashboard() {
   const loadDashboard = async () => {
     try {
       const response = await axios.get(
-        `${API}/dashboard`
+        `${API}/dashboard`,
+        { params: { user_id: user?.id } }
       );
 
       setStats(response.data);
@@ -35,27 +37,28 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-slate-50">
 
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
-      <div className="flex-1 ml-64">
+      <div className="flex-1 md:ml-64">
 
         <Navbar />
 
-        <div className="p-8">
+        <main className="p-5 pb-24 sm:p-8 lg:p-10 md:pb-10 max-w-7xl mx-auto">
 
-          <h2 className="text-3xl font-bold mb-6">
+          <h2 className="text-3xl font-bold tracking-tight mb-2">
             Dashboard
           </h2>
+          <p className="text-slate-500 mb-8">Monitor your community’s spam-detection activity.</p>
 
           {/* Dashboard Cards */}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 hover:-translate-y-0.5 hover:shadow-md">
 
               <h3 className="text-gray-500 text-lg">
                 Total Posts
@@ -67,7 +70,7 @@ export default function Dashboard() {
 
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 hover:-translate-y-0.5 hover:shadow-md">
 
               <h3 className="text-gray-500 text-lg">
                 Spam Detected
@@ -79,7 +82,7 @@ export default function Dashboard() {
 
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 hover:-translate-y-0.5 hover:shadow-md">
 
               <h3 className="text-gray-500 text-lg">
                 Safe Messages
@@ -91,7 +94,7 @@ export default function Dashboard() {
 
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 hover:-translate-y-0.5 hover:shadow-md">
 
               <h3 className="text-gray-500 text-lg">
                 Total Users
@@ -107,7 +110,7 @@ export default function Dashboard() {
 
           {/* Recent Activity */}
 
-          <div className="bg-white rounded-xl shadow-lg p-6 mt-10">
+          <section className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 mt-10">
 
             <h3 className="text-2xl font-bold mb-4">
               Recent Activity
@@ -145,9 +148,9 @@ export default function Dashboard() {
 
             </div>
 
-          </div>
+          </section>
 
-        </div>
+        </main>
 
       </div>
 

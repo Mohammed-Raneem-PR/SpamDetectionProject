@@ -36,6 +36,7 @@ export default function Analytics() {
   const navigate = useNavigate();
 
   const isAdmin = localStorage.getItem("admin") === "true";
+  const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
     loadAnalytics();
@@ -44,7 +45,8 @@ export default function Analytics() {
   const loadAnalytics = async () => {
     try {
       const response = await axios.get(
-        `${API}/analytics`
+        `${API}/analytics`,
+        { params: isAdmin ? {} : { user_id: user?.id } }
       );
 
       setStats(response.data);

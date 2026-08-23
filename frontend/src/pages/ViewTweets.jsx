@@ -10,6 +10,7 @@ export default function ViewTweets() {
   const [tweets, setTweets] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
     fetchTweets();
@@ -17,7 +18,10 @@ export default function ViewTweets() {
 
   const fetchTweets = async () => {
     try {
-      const response = await axios.get(`${API}/tweets`);
+      if (!user?.id) throw new Error("No signed-in user");
+      const response = await axios.get(`${API}/tweets`, {
+        params: { user_id: user.id },
+      });
       setTweets(response.data);
     } catch (error) {
       console.error(error);
@@ -36,7 +40,8 @@ export default function ViewTweets() {
 
     try {
       const response = await axios.delete(
-        `${API}/tweets/${id}`
+        `${API}/tweets/${id}`,
+        { params: { user_id: user?.id } }
       );
 
       toast.success(response.data.message);
@@ -60,11 +65,11 @@ export default function ViewTweets() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen bg-slate-50 p-5 sm:p-8 lg:p-10">
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center mb-6">
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
 
           <button
             onClick={() => navigate("/dashboard")}
@@ -73,7 +78,7 @@ export default function ViewTweets() {
             ← Back
           </button>
 
-          <h1 className="text-4xl font-bold">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
             View All Tweets
           </h1>
 
@@ -82,7 +87,7 @@ export default function ViewTweets() {
         <input
           type="text"
           placeholder="Search..."
-          className="border rounded-lg p-3 w-80"
+          className="border rounded-lg p-3 w-full lg:w-80"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

@@ -40,19 +40,19 @@ export default function Profile() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-slate-50">
 
       <Sidebar />
 
-      <div className="flex-1 ml-64">
+      <div className="flex-1 md:ml-64">
 
         <Navbar />
 
-        <div className="p-10">
+        <main className="p-5 pb-24 sm:p-8 lg:p-10 md:pb-10">
 
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-10">
+          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/60 p-6 sm:p-10">
 
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6">
 
               <div className="w-28 h-28 rounded-full bg-purple-600 text-white flex items-center justify-center text-5xl font-bold">
                 {user.full_name?.charAt(0).toUpperCase()}
@@ -198,7 +198,7 @@ export default function Profile() {
 
           </div>
 
-        </div>
+        </main>
 
       </div>
 

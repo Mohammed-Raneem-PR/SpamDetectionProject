@@ -1,1 +1,34 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "SF Pro Display", "Segoe UI", sans-serif;
+}
+
+html { background: #f8fafc; }
+
+body {
+  min-width: 320px;
+  color: #172033;
+  background: radial-gradient(circle at top right, rgb(224 231 255 / 55%), transparent 28rem), #f8fafc;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, a, input, textarea, select {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease,
+    box-shadow 160ms ease, transform 160ms ease;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid rgb(99 102 241 / 45%);
+  outline-offset: 2px;
+}
+
+input:not([type="radio"]):not([type="file"]), textarea, select { border-color: #d7ddea; }
+
+input:not([type="radio"]):not([type="file"]):focus, textarea:focus, select:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgb(129 140 248 / 15%);
+  outline: none;
+}
+
+::selection { color: #fff; background: #6366f1; }

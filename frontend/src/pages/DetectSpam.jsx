@@ -16,25 +16,42 @@ export default function DetectSpam() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const [history, setHistory] = useState([]);
 
   const [totalPredictions, setTotalPredictions] = useState(0);
   const [spamCount, setSpamCount] = useState(0);
   const [hamCount, setHamCount] = useState(0);
-
+  const user = JSON.parse(localStorage.getItem("user"));
   useEffect(() => {
+    const loadHistory = async () => {
+      if (!user?.id) {
+        setHistory([]);
+        setTotalPredictions(0);
+        setSpamCount(0);
+        setHamCount(0);
+        return;
+      }
 
-    const savedHistory =
-      localStorage.getItem("predictionHistory");
+      try {
+        const response = await axios.get(`${API}/prediction-history`, {
+          params: { user_id: user.id },
+        });
+        const savedPredictions = response.data;
+        setHistory(savedPredictions);
+        setTotalPredictions(savedPredictions.length);
+        setSpamCount(savedPredictions.filter((item) => item.prediction === "Spam").length);
+        setHamCount(savedPredictions.filter((item) => item.prediction === "Ham").length);
+      } catch (error) {
+        console.error(error);
+        toast.error("Unable to load prediction history.");
+      }
+    };
 
-    if (savedHistory) {
-
-      setHistory(JSON.parse(savedHistory));
-
-    }
-
-  }, []);
+    loadHistory();
+  }, [user?.id]);
 
   const detectSpam = async () => {
 
@@ -44,7 +61,18 @@ export default function DetectSpam() {
 
       // ---------------- FILE PREDICTION ----------------
 
-      if (selectedFile) {
+      if (selectedFile?.type.startsWith("image/")) {
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        const response = await axios.post(`${API}/predict-image`, formData);
+
+        setResult(response.data);
+        setText(response.data.extracted_text);
+        toast.success("Image Analysis Completed!");
+
+      } else if (selectedFile) {
 
         const formData = new FormData();
 
@@ -84,6 +112,7 @@ export default function DetectSpam() {
           `${API}/predict`,
           {
             text,
+            user_id: user?.id,
           }
         );
 
@@ -91,39 +120,14 @@ export default function DetectSpam() {
 
         toast.success("Prediction Completed!");
 
-        const newPrediction = {
-
-          message: text,
-
-          prediction: response.data.prediction,
-
-          confidence: response.data.confidence,
-
-          time: new Date().toLocaleString(),
-
-        };
-
-        const updatedHistory =
-          [newPrediction, ...history].slice(0, 10);
-
+        const historyResponse = await axios.get(`${API}/prediction-history`, {
+          params: { user_id: user?.id },
+        });
+        const updatedHistory = historyResponse.data;
         setHistory(updatedHistory);
-
-        localStorage.setItem(
-          "predictionHistory",
-          JSON.stringify(updatedHistory)
-        );
-
-        setTotalPredictions((prev) => prev + 1);
-
-        if (response.data.prediction === "Spam") {
-
-          setSpamCount((prev) => prev + 1);
-
-        } else {
-
-          setHamCount((prev) => prev + 1);
-
-        }
+        setTotalPredictions(updatedHistory.length);
+        setSpamCount(updatedHistory.filter((item) => item.prediction === "Spam").length);
+        setHamCount(updatedHistory.filter((item) => item.prediction === "Ham").length);
 
       }
 
@@ -131,7 +135,7 @@ export default function DetectSpam() {
 
       console.error(error);
 
-      toast.error("Unable to connect to backend.");
+      toast.error(error.response?.data?.detail || "Unable to connect to backend.");
 
     }
 
@@ -146,6 +150,8 @@ export default function DetectSpam() {
     setResult(null);
 
     setSelectedFile(null);
+    setImagePreview(null);
+    setFileInputKey((key) => key + 1);
 
     toast.success("Cleared Successfully");
 
@@ -234,12 +240,13 @@ export default function DetectSpam() {
           <div className="mt-5">
 
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload a Text File (.txt)
+              Upload a text file or image
             </label>
 
             <input
+              key={fileInputKey}
               type="file"
-              accept=".txt"
+              accept=".txt,image/png,image/jpeg,image/webp"
               onChange={(e) => {
 
                 const file = e.target.files[0];
@@ -247,6 +254,14 @@ export default function DetectSpam() {
                 if (!file) return;
 
                 setSelectedFile(file);
+
+                if (file.type.startsWith("image/")) {
+                  setImagePreview(URL.createObjectURL(file));
+                  setText("");
+                  return;
+                }
+
+                setImagePreview(null);
 
                 const reader = new FileReader();
 
@@ -267,8 +282,22 @@ export default function DetectSpam() {
               <div className="mt-3 p-3 bg-green-100 border border-green-300 rounded-xl">
 
                 <p className="text-green-700 font-medium">
-                  📄 Selected File: {selectedFile.name}
+                  {imagePreview ? "🖼️" : "📄"} Selected File: {selectedFile.name}
                 </p>
+
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Selected upload preview"
+                    className="mt-3 max-h-64 rounded-lg border object-contain"
+                  />
+                )}
+
+                {imagePreview && (
+                  <p className="mt-2 text-sm text-green-700">
+                    The text visible in this image will be extracted and checked for spam.
+                  </p>
+                )}
 
               </div>
 

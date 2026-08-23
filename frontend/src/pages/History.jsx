@@ -9,6 +9,8 @@ export default function History() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [predictionFilter, setPredictionFilter] = useState("All");
+  const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
     loadHistory();
@@ -16,7 +18,10 @@ export default function History() {
 
   const loadHistory = async () => {
     try {
-      const response = await axios.get(`${API}/tweets`);
+      if (!user?.id) throw new Error("No signed-in user");
+      const response = await axios.get(`${API}/tweets`, {
+        params: { user_id: user.id },
+      });
       setHistory(response.data);
     } catch (error) {
       console.error(error);
@@ -28,41 +33,55 @@ export default function History() {
 
   const filteredHistory = history.filter(
     (item) =>
-      item.title.toLowerCase().includes(search.toLowerCase()) ||
-      item.tweet.toLowerCase().includes(search.toLowerCase()) ||
-      item.city.toLowerCase().includes(search.toLowerCase())
+      (predictionFilter === "All" || item.prediction === predictionFilter) &&
+      (item.title.toLowerCase().includes(search.toLowerCase()) ||
+        item.tweet.toLowerCase().includes(search.toLowerCase()) ||
+        item.city.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-slate-50">
 
       <Sidebar />
 
-      <div className="flex-1 ml-64">
+      <div className="flex-1 md:ml-64">
 
         <Navbar />
 
-        <div className="p-8">
+        <main className="p-5 pb-24 sm:p-8 lg:p-10 md:pb-10 max-w-7xl mx-auto">
 
-          <h1 className="text-4xl font-bold mb-6">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6">
             Prediction History
           </h1>
 
           <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
 
               <h2 className="text-2xl font-semibold">
                 Total Predictions : {history.length}
               </h2>
 
-              <input
-                type="text"
-                placeholder="Search..."
-                className="border rounded-lg p-3 w-80"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <select
+                  className="border rounded-lg p-3 bg-white"
+                  value={predictionFilter}
+                  onChange={(e) => setPredictionFilter(e.target.value)}
+                  aria-label="Filter prediction history by result"
+                >
+                  <option value="All">All results</option>
+                  <option value="Spam">Spam</option>
+                  <option value="Ham">Ham</option>
+                </select>
+
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="border rounded-lg p-3 w-full sm:w-80"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
 
             </div>
 
@@ -154,7 +173,7 @@ export default function History() {
 
           </div>
 
-        </div>
+        </main>
 
       </div>
 

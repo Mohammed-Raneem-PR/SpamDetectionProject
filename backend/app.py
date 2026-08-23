@@ -1,6 +1,8 @@
-from fastapi import FastAPI, UploadFile, File
-from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from pydantic import BaseModel, Field
 import joblib
+from io import BytesIO
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 import random
 import time
@@ -10,12 +12,22 @@ from email.mime.multipart import MIMEMultipart
 from fastapi import Body
 from database import get_connection
 
+try:
+    from PIL import Image, UnidentifiedImageError
+    import pytesseract
+except ImportError:
+    Image = None
+    UnidentifiedImageError = Exception
+    pytesseract = None
+
 
 from database import (
     
     create_database,
     save_tweet,
     get_all_tweets,
+    save_prediction,
+    get_prediction_history,
     create_users_table,
     register_user,
     login_user,
@@ -33,7 +45,7 @@ otp_store = {}  # Format: {email: {"otp": "123456", "expires": timestamp}}
 verified_emails = set()  # Track verified email addresses
 
 # Gmail Configuration (Update with your credentials)
-GMAIL_EMAIL = "your_email@gmail.com"
+GMAIL_EMAIL = "aispamdetection@gmail.com"
 GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD", "")
 
 def send_otp_email(email: str, otp: str) -> bool:
@@ -155,7 +167,10 @@ def verify_otp(data: VerifyOTP):
     }
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    # Permit the Vite development server when it is opened from a phone on
+    # the same private Wi-Fi network.
+    allow_origin_regex=r"^http://(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3})(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -166,19 +181,44 @@ model = joblib.load("../model/spam_model.pkl")
 vectorizer = joblib.load("../model/vectorizer.pkl")
 
 
+INSTITUTIONAL_SIGNALS = {
+    "public authority": ("government", "ministry", "department of", "department ", "aicte", "naac", "nba"),
+    "education institution": ("college", "institute", "university", "campus", "school", "faculty"),
+    "official programme": ("innovation cell", "e-cell", "iic", "entrepreneurship program", "entrepreneurship programme", "workshop", "seminar", "official notice"),
+    "academic event": ("event date", "registration deadline", "student", "graduates", "coordinator", "principal"),
+}
+SCAM_SIGNALS = (
+    "you have won", "winner", "claim now", "claim your", "guaranteed prize",
+    "lottery", "urgent", "free cash", "send money", "pay a fee", "click this link",
+)
+
+
+def institutional_context(text: str):
+    """Return verified-looking institutional cues for an OCR image, without trusting one word alone."""
+    normalized = text.lower()
+    matches = [
+        category
+        for category, keywords in INSTITUTIONAL_SIGNALS.items()
+        if any(keyword in normalized for keyword in keywords)
+    ]
+    has_scam_signal = any(keyword in normalized for keyword in SCAM_SIGNALS)
+    return matches, has_scam_signal
+
+
 from pydantic import BaseModel
 
 # Used by Detect Spam page
 class DetectMessage(BaseModel):
     text: str
+    user_id: Optional[int] = Field(default=None, gt=0)
 
 
 # Used by Post Tweet page
 class Message(BaseModel):
-    username: str
     title: str
     text: str
     city: str
+    user_id: int = Field(gt=0)
 class User(BaseModel):
     full_name: str
     username: str
@@ -265,10 +305,28 @@ def predict(data: DetectMessage):
     label = "Spam" if prediction == 1 else "Ham"
     confidence = round(max(probability) * 100, 2)
 
+    if data.user_id:
+        save_prediction(data.user_id, data.text, label, confidence)
+
     return {
         "prediction": label,
         "confidence": confidence
     }
+
+
+@app.get("/prediction-history")
+def prediction_history(user_id: int = Query(gt=0)):
+    rows = get_prediction_history(user_id)
+    return [
+        {
+            "id": row[0],
+            "message": row[1],
+            "prediction": row[2],
+            "confidence": row[3],
+            "time": row[4],
+        }
+        for row in rows
+    ]
 @app.post("/post-tweet")
 def post_tweet(data: Message):
 
@@ -281,12 +339,12 @@ def post_tweet(data: Message):
     confidence = round(max(probability) * 100, 2)
 
     save_tweet(
-        data.username,
         data.title,
         data.text,
         data.city,
         label,
-        confidence
+        confidence,
+        data.user_id
     )
 
     return {
@@ -300,9 +358,10 @@ def post_tweet(data: Message):
 # Get All Tweets
 # -----------------------------
 @app.get("/tweets")
-def get_tweets():
+def get_tweets(user_id: Optional[int] = Query(default=None, gt=0)):
 
-    rows = get_all_tweets()
+    # No user_id is reserved for the administrator's all-tweets view.
+    rows = get_all_tweets(user_id)
 
     data = []
 
@@ -373,14 +432,78 @@ async def predict_file(file: UploadFile = File(...)):
         "ham": ham_count,
         "results": results
     }
+
+
+# -----------------------------
+# Predict Text Found In An Image
+# -----------------------------
+@app.post("/predict-image")
+async def predict_image(file: UploadFile = File(...)):
+    """Extract text from an uploaded image, then classify it with the spam model."""
+    if Image is None or pytesseract is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Image analysis is not configured. Install Pillow, pytesseract, and Tesseract OCR."
+        )
+
+    if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(status_code=415, detail="Please upload a PNG, JPG, or WEBP image.")
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="The uploaded image is empty.")
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image must be 10 MB or smaller.")
+
+    try:
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        extracted_text = pytesseract.image_to_string(image).strip()
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="The uploaded file is not a valid image.")
+    except pytesseract.TesseractNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="Tesseract OCR is not installed or is not available on the server."
+        )
+
+    if not extracted_text:
+        raise HTTPException(
+            status_code=422,
+            detail="No readable text was found in this image. Try a clearer image or enter the text manually."
+        )
+
+    vector = vectorizer.transform([extracted_text])
+    prediction = model.predict(vector)[0]
+    probability = model.predict_proba(vector)[0]
+
+    label = "Spam" if prediction == 1 else "Ham"
+    confidence = round(max(probability) * 100, 2)
+    signals, has_scam_signal = institutional_context(extracted_text)
+
+    # OCR frequently introduces noise into genuine official posters. For images only,
+    # treat multiple independent institutional signals as a Ham safeguard, unless the
+    # text also includes common scam language.
+    institutional_override = label == "Spam" and len(signals) >= 2 and not has_scam_signal
+    if institutional_override:
+        label = "Ham"
+        confidence = 75.0
+
+    return {
+        "prediction": label,
+        "confidence": confidence,
+        "extracted_text": extracted_text,
+        "source": "image",
+        "institutional_signals": signals,
+        "institutional_override": institutional_override
+    }
 @app.get("/dashboard")
-def dashboard():
+def dashboard(user_id: Optional[int] = Query(default=None, gt=0)):
 
-    return get_dashboard_stats()
+    return get_dashboard_stats(user_id)
 @app.get("/analytics")
-def analytics():
+def analytics(user_id: Optional[int] = Query(default=None, gt=0)):
 
-    return get_analytics()
+    return get_analytics(user_id)
 @app.put("/profile")
 def update_user(data: UpdateProfile):
 
@@ -396,9 +519,11 @@ def update_user(data: UpdateProfile):
         "message": "Profile Updated Successfully"
     }
 @app.delete("/tweets/{tweet_id}")
-def remove_tweet(tweet_id: int):
+def remove_tweet(tweet_id: int, user_id: Optional[int] = Query(default=None, gt=0)):
 
-    delete_tweet(tweet_id)
+    # A signed-in user can only delete a tweet they own.  Admin calls omit
+    # user_id and retain the existing management behaviour.
+    delete_tweet(tweet_id, user_id)
 
     return {
         "message": "Tweet Deleted Successfully"

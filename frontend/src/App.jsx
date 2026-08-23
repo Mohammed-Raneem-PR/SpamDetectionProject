@@ -13,6 +13,7 @@ import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
 import PostTweet from "./pages/PostTweet";
 import ViewTweets from "./pages/ViewTweets";
+import Trending from "./pages/Trending";
 import Reviews from "./pages/Reviews";
 
 import AdminDashboard from "./pages/AdminDashboard";
@@ -89,6 +90,15 @@ function App() {
         element={
           <ProtectedRoute>
             <ViewTweets />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/trending"
+        element={
+          <ProtectedRoute>
+            <Trending />
           </ProtectedRoute>
         }
       />

@@ -42,8 +42,6 @@ def load_single_dataset(dataset_path):
     if unsupported:
         raise ValueError("Unsupported labels: " + ", ".join(unsupported) + ". Map them to spam or ham before training.")
     data["label"] = labels.isin(SPAM_LABELS).astype(int)
-    if data["label"].nunique() != 2:
-        raise ValueError(f"{dataset_path} must contain both spam and non-spam examples.")
     return data
 
 
@@ -56,7 +54,10 @@ def load_datasets(dataset_paths):
             paths.append(dataset_path)
     if not paths:
         raise ValueError("No CSV files found in the provided dataset paths.")
-    return pd.concat([load_single_dataset(path) for path in paths], ignore_index=True)
+    data = pd.concat([load_single_dataset(path) for path in paths], ignore_index=True)
+    if data["label"].nunique() != 2:
+        raise ValueError("The combined training data must contain both spam and non-spam examples.")
+    return data
 
 
 def main():

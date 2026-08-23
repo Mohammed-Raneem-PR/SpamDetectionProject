@@ -16,6 +16,24 @@ def create_database():
             city TEXT,
             prediction TEXT,
             confidence REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            owner_user_id INTEGER
+        )
+    """)
+
+    # Existing installations may already have a tweets table.  Add ownership
+    # without losing the tweets that are already stored in it.
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(tweets)")}
+    if "owner_user_id" not in columns:
+        cursor.execute("ALTER TABLE tweets ADD COLUMN owner_user_id INTEGER")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS prediction_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            prediction TEXT NOT NULL,
+            confidence REAL NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -41,33 +59,64 @@ def create_database():
     conn.close()
 
 
-def save_tweet(title, tweet, city, prediction, confidence):
+def save_tweet(title, tweet, city, prediction, confidence, owner_user_id):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT INTO tweets
-        (title, tweet, city, prediction, confidence)
-        VALUES (?, ?, ?, ?, ?)
-    """, (title, tweet, city, prediction, confidence))
+        (title, tweet, city, prediction, confidence, owner_user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (title, tweet, city, prediction, confidence, owner_user_id))
 
     conn.commit()
     conn.close()
 
 
-def get_all_tweets():
+def get_all_tweets(owner_user_id=None):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT * FROM tweets
-        ORDER BY id DESC
-    """)
+    if owner_user_id is None:
+        cursor.execute("SELECT * FROM tweets ORDER BY id DESC")
+    else:
+        cursor.execute(
+            "SELECT * FROM tweets WHERE owner_user_id = ? ORDER BY id DESC",
+            (owner_user_id,)
+        )
 
     rows = cursor.fetchall()
 
     conn.close()
 
+    return rows
+
+
+def save_prediction(user_id, message, prediction, confidence):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute(
+        """INSERT INTO prediction_history
+        (user_id, message, prediction, confidence) VALUES (?, ?, ?, ?)""",
+        (user_id, message, prediction, confidence),
+    )
+    prediction_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return prediction_id
+
+
+def get_prediction_history(user_id, limit=10):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute(
+        """SELECT id, message, prediction, confidence, created_at
+        FROM prediction_history WHERE user_id = ?
+        ORDER BY id DESC LIMIT ?""",
+        (user_id, limit),
+    )
+    rows = cursor.fetchall()
+    conn.close()
     return rows
 def create_users_table():
 
@@ -157,7 +206,7 @@ def login_user(username, password):
     conn.close()
 
     return user
-def get_dashboard_stats():
+def get_dashboard_stats(owner_user_id=None):
 
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
@@ -165,13 +214,18 @@ def get_dashboard_stats():
     cursor.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM tweets")
+    tweet_filter = "" if owner_user_id is None else " WHERE owner_user_id = ?"
+    filter_params = () if owner_user_id is None else (owner_user_id,)
+
+    cursor.execute(f"SELECT COUNT(*) FROM tweets{tweet_filter}", filter_params)
     total_tweets = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM tweets WHERE prediction='Spam'")
+    prediction_filter = " WHERE prediction='Spam'" if owner_user_id is None else " WHERE prediction='Spam' AND owner_user_id = ?"
+    cursor.execute(f"SELECT COUNT(*) FROM tweets{prediction_filter}", filter_params)
     spam = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM tweets WHERE prediction='Ham'")
+    prediction_filter = " WHERE prediction='Ham'" if owner_user_id is None else " WHERE prediction='Ham' AND owner_user_id = ?"
+    cursor.execute(f"SELECT COUNT(*) FROM tweets{prediction_filter}", filter_params)
     ham = cursor.fetchone()[0]
 
     conn.close()
@@ -182,18 +236,22 @@ def get_dashboard_stats():
         "spam": spam,
         "ham": ham
     }
-def get_analytics():
+def get_analytics(owner_user_id=None):
 
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM tweets WHERE prediction='Spam'")
+    tweet_filter = "" if owner_user_id is None else " AND owner_user_id = ?"
+    filter_params = () if owner_user_id is None else (owner_user_id,)
+
+    cursor.execute(f"SELECT COUNT(*) FROM tweets WHERE prediction='Spam'{tweet_filter}", filter_params)
     spam = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM tweets WHERE prediction='Ham'")
+    cursor.execute(f"SELECT COUNT(*) FROM tweets WHERE prediction='Ham'{tweet_filter}", filter_params)
     ham = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM tweets")
+    where_filter = "" if owner_user_id is None else " WHERE owner_user_id = ?"
+    cursor.execute(f"SELECT COUNT(*) FROM tweets{where_filter}", filter_params)
     total = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -241,15 +299,18 @@ def update_profile(
 
     conn.commit()
     conn.close()
-def delete_tweet(tweet_id):
+def delete_tweet(tweet_id, owner_user_id=None):
 
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
-    cursor.execute(
-        "DELETE FROM tweets WHERE id=?",
-        (tweet_id,)
-    )
+    if owner_user_id is None:
+        cursor.execute("DELETE FROM tweets WHERE id=?", (tweet_id,))
+    else:
+        cursor.execute(
+            "DELETE FROM tweets WHERE id=? AND owner_user_id=?",
+            (tweet_id, owner_user_id)
+        )
 
     conn.commit()
     conn.close()

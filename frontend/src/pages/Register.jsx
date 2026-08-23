@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
 import API from "../config/api";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Register() {
   const [username, setUsername] =useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
 
@@ -167,9 +169,9 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-indigo-700 via-purple-600 to-pink-500">
+    <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 p-5">
 
-      <div className="bg-white p-10 rounded-2xl shadow-xl w-96">
+      <div className="bg-white/95 backdrop-blur p-7 sm:p-10 rounded-2xl shadow-2xl w-full max-w-md">
 
         <h1 className="text-3xl font-bold text-center mb-8">
           Register
@@ -191,13 +193,24 @@ export default function Register() {
           className="w-full border rounded-lg p-3 mb-3"
         />
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full border rounded-lg p-3 mb-3"
-        />
+        <div className="relative mb-3">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border rounded-lg p-3 pr-12"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((visible) => !visible)}
+            className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            title={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
 
         <input
           type="email"

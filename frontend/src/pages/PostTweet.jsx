@@ -13,12 +13,18 @@ export default function PostTweet() {
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user"));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!tweet.trim()) {
-      toast.error("Please enter a tweet.");
+    if (!title.trim() || !tweet.trim() || !city.trim()) {
+      toast.error("Please fill in the title, tweet description, and city.");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("Please log in again before posting a tweet.");
       return;
     }
 
@@ -26,15 +32,17 @@ export default function PostTweet() {
 
     try {
       const response = await axios.post(
-        `${API}/predict`,
+        `${API}/post-tweet`,
         {
           title,
           text: tweet,
           city,
+          user_id: user.id,
         }
       );
 
       setResult(response.data);
+      toast.success(response.data.message || "Tweet posted successfully.");
 
     } catch (error) {
       console.error(error);
@@ -45,13 +53,13 @@ export default function PostTweet() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-10">
+    <div className="min-h-screen bg-slate-50 p-5 sm:p-8 lg:p-10">
 
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
+      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/60 p-6 sm:p-8">
 
         <div className="flex justify-between items-center mb-8">
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
 
             <button
               type="button"
@@ -61,7 +69,7 @@ export default function PostTweet() {
               ← Back
             </button>
 
-            <h1 className="text-4xl font-bold">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
               Post Your Tweet
             </h1>
 
@@ -83,6 +91,7 @@ export default function PostTweet() {
               placeholder="Enter your tweet title here..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              required
             />
 
           </div>
@@ -100,6 +109,7 @@ export default function PostTweet() {
               placeholder="Enter your tweet here..."
               value={tweet}
               onChange={(e) => setTweet(e.target.value)}
+              required
             />
 
           </div>
@@ -116,6 +126,7 @@ export default function PostTweet() {
               placeholder="Enter your city..."
               value={city}
               onChange={(e) => setCity(e.target.value)}
+              required
             />
 
           </div>
@@ -123,7 +134,7 @@ export default function PostTweet() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold p-4 rounded-lg"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-xl shadow-lg shadow-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Detecting..." : "Submit Tweet"}
           </button>
