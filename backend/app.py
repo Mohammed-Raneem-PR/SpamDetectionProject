@@ -3,6 +3,10 @@ from pydantic import BaseModel
 import joblib
 from fastapi.middleware.cors import CORSMiddleware
 import random
+import time
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from fastapi import Body
 from database import get_connection
 
@@ -25,12 +29,49 @@ delete_user
 )
 
 app = FastAPI(title="Spam Detection API")
-otp_store = {}
+otp_store = {}  # Format: {email: {"otp": "123456", "expires": timestamp}}
+verified_emails = set()  # Track verified email addresses
+
+# Gmail Configuration (Update with your credentials)
+GMAIL_EMAIL = "your_email@gmail.com"
+GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD", "")
+
+def send_otp_email(email: str, otp: str) -> bool:
+    """Send OTP to email via Gmail"""
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = GMAIL_EMAIL
+        msg["To"] = email
+        msg["Subject"] = "Your OTP Verification Code"
+        
+        body = f"""
+        <html>
+            <body style="font-family: Arial; text-align: center;">
+                <h2 style="color: #333;">OTP Verification</h2>
+                <p style="font-size: 14px; color: #666;">Your verification code is:</p>
+                <h1 style="color: #007bff; letter-spacing: 2px;">{otp}</h1>
+                <p style="font-size: 12px; color: #999;">This code expires in 5 minutes.</p>
+                <hr>
+                <p style="font-size: 11px; color: #bbb;">If you didn't request this code, please ignore this email.</p>
+            </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, "html"))
+        
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(GMAIL_EMAIL, GMAIL_PASSWORD)
+            server.sendmail(GMAIL_EMAIL, email, msg.as_string())
+        
+        return True
+    except Exception as e:
+        print(f"❌ Email Error: {e}")
+        return False
 
 create_database()
 create_users_table()
 class OTPRequest(BaseModel):
-    phone: str
+    email: str
 class UpdateProfile(BaseModel):
     id: int
     full_name: str
@@ -40,37 +81,77 @@ class UpdateProfile(BaseModel):
 
 @app.post("/send-otp")
 def send_otp(data: OTPRequest):
-
     otp = str(random.randint(100000, 999999))
-
-    otp_store[data.phone] = otp
-
-    print("\n==============================")
-    print("Demo OTP:", otp)
-    print("Phone:", data.phone)
-    print("==============================\n")
-
-    return {
-        "message": "OTP Sent Successfully"
+    expiration = time.time() + 300  # 5 minutes expiration
+    
+    otp_store[data.email] = {
+        "otp": otp,
+        "expires": expiration
     }
+    
+    # Remove from verified set when sending new OTP
+    if data.email in verified_emails:
+        verified_emails.discard(data.email)
+    
+    # Send OTP via email
+    email_sent = send_otp_email(data.email, otp)
+    
+    if email_sent:
+        print("\n✅ OTP Sent Successfully")
+        print(f"Email: {data.email}")
+        print(f"OTP: {otp}")
+        print(f"Expires in: 5 minutes\n")
+        
+        return {
+            "message": "OTP sent to your email",
+            "expires_in_seconds": 300
+        }
+    else:
+        # If email fails, still store OTP and show console
+        print(f"\n⚠️  Email failed - Using console fallback")
+        print(f"Demo OTP: {otp}")
+        print(f"Email: {data.email}\n")
+        
+        return {
+            "message": "OTP generated (email service unavailable - check console)",
+            "expires_in_seconds": 300
+        }
 class VerifyOTP(BaseModel):
-    phone: str
+    email: str
     otp: str
 
 
 @app.post("/verify-otp")
 def verify_otp(data: VerifyOTP):
-
-    if otp_store.get(data.phone) == data.otp:
-
-        del otp_store[data.phone]
-
+    if data.email not in otp_store:
         return {
-            "verified": True
+            "verified": False,
+            "error": "OTP not found. Please send OTP first."
         }
-
+    
+    stored = otp_store[data.email]
+    current_time = time.time()
+    
+    # Check if OTP has expired
+    if current_time > stored["expires"]:
+        del otp_store[data.email]
+        return {
+            "verified": False,
+            "error": "OTP has expired. Please request a new one."
+        }
+    
+    # Check if OTP is correct
+    if stored["otp"] == data.otp:
+        del otp_store[data.email]
+        verified_emails.add(data.email)  # Mark email as verified
+        return {
+            "verified": True,
+            "message": "Email verified successfully"
+        }
+    
     return {
-        "verified": False
+        "verified": False,
+        "error": "Invalid OTP. Please try again."
     }
 app.add_middleware(
     CORSMiddleware,
@@ -115,19 +196,35 @@ def home():
     return {"message": "Spam Detection API is running!"}
 @app.post("/register")
 def register(data: User):
-
-    register_user(
-        data.full_name,
-        data.username,
-        data.email,
-        data.password,
-        data.phone,
-        data.city
-    )
-
-    return {
-        "message": "User Registered Successfully"
-    }
+    # Check if email has been verified via OTP
+    if data.email not in verified_emails:
+        return {
+            "success": False,
+            "message": "Email must be verified via OTP before registration"
+        }
+    
+    try:
+        register_user(
+            data.full_name,
+            data.username,
+            data.email,
+            data.password,
+            data.phone,
+            data.city
+        )
+        
+        # Remove email from verified set after successful registration
+        verified_emails.discard(data.email)
+        
+        return {
+            "success": True,
+            "message": "User Registered Successfully"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Registration failed: {str(e)}"
+        }
 @app.post("/login")
 def login(data: Login):
 

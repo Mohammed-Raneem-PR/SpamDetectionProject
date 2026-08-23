@@ -20,6 +20,7 @@ export default function Register() {
 
   const handleRegister = async () => {
 
+    // Check all fields are filled
     if (
       !fullName ||
       !username ||
@@ -29,6 +30,32 @@ export default function Register() {
       !city
     ) {
       toast.error("Please fill all fields.");
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Password validation (min 6 characters)
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+
+    // Phone validation (at least 10 digits)
+    const phoneRegex = /^\d{10,}$/;
+    if (!phoneRegex.test(phone.replace(/\D/g, ""))) {
+      toast.error("Please enter a valid phone number (at least 10 digits)");
+      return;
+    }
+
+    // Check if email is verified via OTP
+    if (!otpVerified) {
+      toast.error("Please verify your email with OTP first.");
       return;
     }
 
@@ -46,15 +73,18 @@ export default function Register() {
         }
       );
 
-      toast.success(response.data.message);
-
-      navigate("/");
+      if (response.data.success) {
+        toast.success(response.data.message);
+        navigate("/");
+      } else {
+        toast.error(response.data.message || "Registration Failed");
+      }
 
     } catch (error) {
 
       console.error(error);
 
-      toast.error("Registration Failed");
+      toast.error(error.response?.data?.message || "Registration Failed");
 
     }
 
@@ -62,8 +92,15 @@ export default function Register() {
 
   const handleSendOTP = async () => {
 
-    if (!phone) {
-      toast.error("Enter Phone Number");
+    if (!email) {
+      toast.error("Please enter your email");
+      return;
+    }
+
+    // Email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -72,7 +109,7 @@ export default function Register() {
       const response = await axios.post(
         `${API}/send-otp`,
         {
-          phone: phone
+          email: email
         }
       );
 
@@ -92,25 +129,30 @@ export default function Register() {
 
   const handleVerifyOTP = async () => {
 
+    if (!otp) {
+      toast.error("Please enter OTP");
+      return;
+    }
+
     try {
 
       const response = await axios.post(
         `${API}/verify-otp`,
         {
-          phone: phone,
+          email: email,
           otp: otp
         }
       );
 
       if (response.data.verified) {
 
-        toast.success("OTP Verified");
+        toast.success("Email Verified! You can now register.");
 
         setOtpVerified(true);
 
       } else {
 
-        toast.error("Wrong OTP");
+        toast.error(response.data.error || "Wrong OTP");
 
       }
 
@@ -135,14 +177,6 @@ export default function Register() {
 
         <input
           type="text"
-          placeholder="Full Name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          className="w-full border rounded-lg p-3 mb-3"
-        />
-
-        <input
-          type="text"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -150,10 +184,10 @@ export default function Register() {
         />
 
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Full Name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
           className="w-full border rounded-lg p-3 mb-3"
         />
 
@@ -166,29 +200,37 @@ export default function Register() {
         />
 
         <input
-          type="text"
-          placeholder="Phone"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full border rounded-lg p-3 mb-3"
         />
 
         <button
           type="button"
           onClick={handleSendOTP}
-          className="w-full bg-blue-600 text-white p-3 rounded-lg mb-3"
+          disabled={otpVerified}
+          className={`w-full p-3 rounded-lg mb-3 text-white font-semibold ${
+            otpVerified
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
-          Send OTP
+          {otpVerified ? "✓ Email Verified" : "Send OTP to Email"}
         </button>
 
         {otpSent && (
-          <input
-            type="text"
-            placeholder="Enter OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            className="w-full border rounded-lg p-3 mb-3"
-          />
+          <>
+            <input
+              type="text"
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              className="w-full border rounded-lg p-3 mb-3"
+            />
+            <p className="text-sm text-gray-600 mb-2">OTP expires in 5 minutes</p>
+          </>
         )}
 
         {otpSent && !otpVerified && (
@@ -200,6 +242,14 @@ export default function Register() {
             Verify OTP
           </button>
         )}
+
+        <input
+          type="text"
+          placeholder="Phone"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="w-full border rounded-lg p-3 mb-3"
+        />
 
         <input
           type="text"

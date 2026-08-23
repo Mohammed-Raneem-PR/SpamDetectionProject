@@ -210,7 +210,7 @@ export default function DetectSpam() {
             </h2>
 
             <p className="text-gray-700 font-semibold mt-2">
-              Safe Messages
+              Safe Posts
             </p>
 
           </div>
@@ -224,7 +224,7 @@ export default function DetectSpam() {
           <textarea
             rows="6"
             className="w-full border rounded-xl p-4 text-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            placeholder="Type your message here..."
+            placeholder="Type a social-media post or comment here..."
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
@@ -307,7 +307,7 @@ export default function DetectSpam() {
                 <h2 className="text-2xl font-bold">
                   {result.prediction === "Spam"
                     ? "🚨 Spam Detected"
-                    : "✅ Safe Message"}
+                    : "✅ Safe Post"}
                 </h2>
 
                 <span
@@ -363,9 +363,9 @@ export default function DetectSpam() {
 
                   {result.prediction === "Spam"
 
-                    ? "⚠️ This message appears to contain spam-like characteristics. Avoid clicking unknown links or sharing sensitive information."
+                    ? "⚠️ This post appears to contain spam-like characteristics. Avoid clicking unknown links or sharing sensitive information."
 
-                    : "🎉 This message appears safe according to the trained machine learning model."}
+                    : "🎉 This post appears safe according to the trained machine learning model."}
 
                 </p>
 
