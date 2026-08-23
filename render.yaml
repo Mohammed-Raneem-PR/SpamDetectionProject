@@ -2,20 +2,18 @@ services:
   - type: web
     name: spam-detection-api
     runtime: docker
-    plan: starter
+    # Render's free web service tier. Its filesystem is ephemeral, so SQLite
+    # data is reset whenever Render restarts or redeploys this service.
+    plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /
     envVars:
       - key: DATABASE_PATH
-        value: /var/data/spam_detection.db
+        value: /tmp/spam_detection.db
       - key: GMAIL_EMAIL
         sync: false
       - key: GMAIL_PASSWORD
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
-    disk:
-      name: spam-detection-data
-      mountPath: /var/data
-      sizeGB: 1
