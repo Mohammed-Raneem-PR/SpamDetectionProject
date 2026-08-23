@@ -236,30 +236,29 @@ export default function Register() {
           {otpVerified ? "✓ Email Verified" : "Send OTP to Email"}
         </button>
 
-        <input
-          type="text"
-          inputMode="numeric"
-          maxLength="6"
-          placeholder="Enter OTP"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-          className="w-full border rounded-lg p-3 mb-2"
-        />
-        <p className="text-sm text-gray-600 mb-2">OTP expires in 5 minutes</p>
         {otpStatus && <p className="text-sm text-blue-700 mb-3">{otpStatus}</p>}
 
-        <button
-          type="button"
-          onClick={handleVerifyOTP}
-          disabled={!otpSent || otpVerified}
-          className={`w-full p-3 rounded-lg mb-3 text-white font-semibold ${
-            otpSent && !otpVerified
-              ? "bg-green-600 hover:bg-green-700"
-              : "bg-gray-400 cursor-not-allowed"
-          }`}
-        >
-          Verify OTP
-        </button>
+        {otpSent && !otpVerified && (
+          <>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength="6"
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              className="w-full border rounded-lg p-3 mb-2"
+            />
+            <p className="text-sm text-gray-600 mb-2">OTP expires in 5 minutes</p>
+            <button
+              type="button"
+              onClick={handleVerifyOTP}
+              className="w-full bg-green-600 hover:bg-green-700 p-3 rounded-lg mb-3 text-white font-semibold"
+            >
+              Verify OTP
+            </button>
+          </>
+        )}
 
         <input
           type="text"
