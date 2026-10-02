@@ -1,11 +1,26 @@
 import { useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import API from "../config/api";
 import { useNavigate } from "react-router-dom";
+import API from "../config/api";
+import AppLayout from "../components/AppLayout";
+import { normalizeCity } from "../utils/cityUtils";
+import {
+  Send,
+  MapPin,
+  Sparkles,
+  ShieldCheck,
+  AlertTriangle,
+  RefreshCw,
+  Eye,
+  MessageSquare,
+  ArrowRight,
+  CheckCircle2,
+} from "lucide-react";
 
 export default function PostTweet() {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user"));
 
   const [title, setTitle] = useState("");
   const [tweet, setTweet] = useState("");
@@ -13,211 +28,277 @@ export default function PostTweet() {
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user"));
+
+  const popularCities = ["Bangalore", "New York", "London", "San Francisco", "Mumbai", "Tokyo"];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!title.trim() || !tweet.trim() || !city.trim()) {
-      toast.error("Please fill in the title, tweet description, and city.");
+      toast.error("Please fill in the title, tweet content, and city.");
       return;
     }
 
     if (!user?.id) {
-      toast.error("Please log in again before posting a tweet.");
+      toast.error("Please log in again before posting.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        `${API}/post-tweet`,
-        {
-          title,
-          text: tweet,
-          city,
-          user_id: user.id,
-        }
-      );
+      const normalizedCity = normalizeCity(city);
+      const response = await axios.post(`${API}/post-tweet`, {
+        title: title.trim(),
+        text: tweet.trim(),
+        city: normalizedCity,
+        user_id: user.id,
+      });
 
       setResult(response.data);
-      toast.success(response.data.message || "Tweet posted successfully.");
-
+      toast.success(response.data.message || "Tweet posted successfully!");
     } catch (error) {
       console.error(error);
-      toast.error("Backend Connection Failed!");
+      toast.error("Failed to post tweet. Backend connection issue.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setLoading(false);
+  const clearForm = () => {
+    setTitle("");
+    setTweet("");
+    setCity("");
+    setResult(null);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-5 sm:p-8 lg:p-10">
-
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/60 p-6 sm:p-8">
-
-        <div className="flex justify-between items-center mb-8">
-
-          <div className="flex flex-wrap items-center gap-4">
-
+    <AppLayout
+      title="Create Social Post"
+      subtitle="Publish new posts with automated AI spam detection and real-time feed preview"
+      actions={
+        <button
+          onClick={() => navigate("/tweets")}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 transition shadow-xs"
+        >
+          <MessageSquare className="h-3.5 w-3.5 text-slate-500" />
+          <span>View All Tweets</span>
+        </button>
+      }
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Post Form (7 cols) */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">Post Composer</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Content is scanned with calibrated Linear SVM upon submission</p>
+            </div>
             <button
               type="button"
-              onClick={() => navigate("/dashboard")}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-5 py-2 rounded-lg"
+              onClick={clearForm}
+              className="text-xs text-slate-400 hover:text-rose-500 font-medium"
             >
-              ← Back
+              Reset form
             </button>
-
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Post Your Tweet
-            </h1>
-
           </div>
 
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Title Input */}
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                Post Headline / Title
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Campus Tech Workshop 2026 Announcement"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={100}
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+              />
+            </div>
+
+            {/* City / Location Input */}
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                City / Region
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. Bangalore, London, New York..."
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                />
+              </div>
+
+              {/* City quick chips */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                <span className="text-[10px] text-slate-400 font-medium">Quick suggestions:</span>
+                {popularCities.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCity(c)}
+                    className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 border border-slate-200/80 transition"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tweet Content */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  Tweet Content
+                </label>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {tweet.length} / 280
+                </span>
+              </div>
+              <textarea
+                rows="5"
+                placeholder="Share an update, announce an event, or discuss a topic..."
+                value={tweet}
+                onChange={(e) => setTweet(e.target.value)}
+                maxLength={280}
+                className="w-full rounded-xl border border-slate-200 p-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition leading-relaxed resize-y"
+              />
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2 flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={loading || !title.trim() || !tweet.trim() || !city.trim()}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition shadow-md ${
+                  loading || !title.trim() || !tweet.trim() || !city.trim()
+                    ? "bg-slate-300 cursor-not-allowed shadow-none"
+                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/25"
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>Analyzing & Posting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    <span>Post Tweet with AI Inspection</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
 
-        <form onSubmit={handleSubmit}>
-
-          <div className="mb-5">
-
-            <label className="font-semibold">
-              Tweet Title
-            </label>
-
-            <input
-              type="text"
-              className="w-full border rounded-lg p-3 mt-2"
-              placeholder="Enter your tweet title here..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-
-          </div>
-
-          <div className="mb-5">
-
-            <label className="font-semibold">
-              Tweet Description
-            
-            </label>
-
-            <textarea
-              rows="6"
-              className="w-full border rounded-lg p-3 mt-2"
-              placeholder="Enter your tweet here..."
-              value={tweet}
-              onChange={(e) => setTweet(e.target.value)}
-              required
-            />
-
-          </div>
-
-          <div className="mb-6">
-
-            <label className="font-semibold">
-              City
-            </label>
-
-            <input
-              type="text"
-              className="w-full border rounded-lg p-3 mt-2"
-              placeholder="Enter your city..."
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              required
-            />
-
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-xl shadow-lg shadow-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Detecting..." : "Submit Tweet"}
-          </button>
-
-        </form>
-                {result && (
-
-          <div className="mt-8 bg-gray-100 rounded-lg p-6">
-
-            <h2 className="text-2xl font-bold mb-4">
-              Prediction Result
-            </h2>
-
-            <p className="text-lg mb-3">
-              <strong>Prediction:</strong>{" "}
-              <span
-                className={
-                  result.prediction === "Spam"
-                    ? "text-red-600 font-bold"
-                    : "text-green-600 font-bold"
-                }
-              >
-                {result.prediction}
-              </span>
-            </p>
-
-            <p className="text-lg">
-              <strong>Confidence:</strong>{" "}
-              {result.confidence}%
-            </p>
-
-            <div className="mt-6">
-
-              <div className="flex justify-between mb-2">
-                <span className="font-medium">
-                  Confidence Score
-                </span>
-
-                <span>
-                  {result.confidence}%
-                </span>
+        {/* Right Column: Live Feed Preview & Result (5 cols) */}
+        <div className="lg:col-span-5 space-y-5">
+          {/* Real-Time Live Feed Card Preview */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-indigo-600 text-xs font-bold uppercase tracking-wider">
+                <Eye className="h-4 w-4" />
+                <span>Live Feed Preview</span>
               </div>
-
-              <div className="w-full bg-gray-300 rounded-full h-4">
-
-                <div
-                  className={`h-4 rounded-full ${
-                    result.prediction === "Spam"
-                      ? "bg-red-500"
-                      : "bg-green-500"
-                  }`}
-                  style={{
-                    width: `${result.confidence}%`,
-                  }}
-                ></div>
-
-              </div>
-
+              <span className="text-[10px] text-slate-400">Card rendering</span>
             </div>
 
-            <div className="mt-6 p-4 rounded-xl bg-white border">
+            {/* Preview Box styled like modern social post */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold uppercase">
+                  {user?.full_name?.charAt(0) || user?.username?.charAt(0) || "U"}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 truncate">
+                    {user?.full_name || user?.username || "Authenticated User"}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    @{user?.username || "user"} · {city ? normalizeCity(city) : "Global"}
+                  </div>
+                </div>
+              </div>
 
-              <h3 className="font-semibold text-lg mb-2">
-                AI Explanation
-              </h3>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 mb-1">
+                  {title || "Your Post Headline will appear here"}
+                </h4>
+                <p className="text-xs text-slate-700 leading-relaxed break-words">
+                  {tweet || "Type your tweet in the form on the left to see an instant real-time preview of how other users will see your post in the feed."}
+                </p>
+              </div>
 
-              <p className="text-gray-600">
+              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-400">
+                <span>Just now</span>
+                <span className="font-medium text-indigo-600">Pending AI Verification</span>
+              </div>
+            </div>
+          </div>
 
+          {/* AI Result Card after Submission */}
+          {result && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase ${
+                      result.prediction === "Spam"
+                        ? "bg-rose-100 text-rose-800 border border-rose-200"
+                        : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                    }`}
+                  >
+                    {result.prediction === "Spam" ? (
+                      <>
+                        <AlertTriangle className="h-4 w-4 text-rose-600" />
+                        <span>Spam Flagged</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                        <span>Safe Message</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <span className="text-xl font-extrabold text-slate-900">
+                  {result.confidence}% Confidence
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
                 {result.prediction === "Spam"
-                  ? "⚠️ This tweet contains characteristics commonly associated with spam messages. Users should avoid clicking unknown links or sharing personal information."
-                  : "✅ This tweet appears to be a legitimate message according to the trained machine learning model."}
-
+                  ? "Your post was detected as potential spam or promotional content and marked accordingly."
+                  : "Your post passed AI evaluation and is verified safe for the community feed."}
               </p>
 
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/tweets")}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                >
+                  <span>Go to Feed</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={clearForm}
+                  className="text-xs font-medium text-slate-400 hover:text-slate-600"
+                >
+                  Compose Another
+                </button>
+              </div>
             </div>
-
-          </div>
-
-        )}
-
+          )}
+        </div>
       </div>
-
-    </div>
-
+    </AppLayout>
   );
 }

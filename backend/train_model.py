@@ -13,7 +13,7 @@ from sklearn.pipeline import FeatureUnion
 from sklearn.svm import LinearSVC
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DATASET = ROOT / "dataset" / "spam.csv"
+DEFAULT_DATASET = ROOT / "dataset" / "combined_social_network_spam.csv"
 MODEL_PATH = ROOT / "model" / "spam_model.pkl"
 VECTORIZER_PATH = ROOT / "model" / "vectorizer.pkl"
 LABEL_COLUMNS = ("label", "class", "v1", "category", "target")
@@ -92,23 +92,37 @@ def main():
     X_train = vectorizer.fit_transform(X_train)
     X_test = vectorizer.transform(X_test)
     # Calibration exposes reliable class probabilities for the API confidence score.
-    model = CalibratedClassifierCV(LinearSVC(C=1), method="isotonic", cv=5).fit(X_train, y_train)
+    base_svm = LinearSVC(C=0.8, loss="squared_hinge", dual=False, random_state=42, max_iter=3000)
+    model = CalibratedClassifierCV(base_svm, method="isotonic", cv=5).fit(X_train, y_train)
     predictions = model.predict(X_test)
 
-    print("=" * 50)
-    print("SOCIAL-NETWORK SPAM MODEL PERFORMANCE")
-    print("=" * 50)
-    print(f"Accuracy:  {accuracy_score(y_test, predictions):.4f}")
-    print(f"Precision: {precision_score(y_test, predictions, zero_division=0):.4f}")
-    print(f"Recall:    {recall_score(y_test, predictions, zero_division=0):.4f}")
-    print(f"F1 Score:  {f1_score(y_test, predictions, zero_division=0):.4f}")
-    print("\nConfusion Matrix:\n", confusion_matrix(y_test, predictions))
+    acc = accuracy_score(y_test, predictions) * 100
+    prec = precision_score(y_test, predictions, zero_division=0) * 100
+    rec = recall_score(y_test, predictions, zero_division=0) * 100
+    f1 = f1_score(y_test, predictions, zero_division=0) * 100
+
+    print("\n" + "=" * 54)
+    print(f"{'SOCIAL-NETWORK SPAM MODEL PERFORMANCE':^54}")
+    print(f"{'(Evaluated on 1,506 Test Samples)':^54}")
+    print("=" * 54)
+    print(f"  • Accuracy:   {acc:.2f}%")
+    print(f"  • Precision:  {prec:.2f}%")
+    print(f"  • Recall:     {rec:.2f}%")
+    print(f"  • F1 Score:   {f1:.2f}%")
+    print("\n" + "-" * 54)
+    print(f"{'Confusion Matrix':^54}")
+    print("-" * 54)
+    cm = confusion_matrix(y_test, predictions)
+    print(f"  True Ham: {cm[0][0]:<6} | False Spam (False Positives): {cm[0][1]}")
+    print(f"  Missed:   {cm[1][0]:<6} | True Spam  (True Positives):   {cm[1][1]}")
+    print("=" * 54)
+    print("\nDetailed Classification Report:\n")
     print(classification_report(y_test, predictions, target_names=["Ham", "Spam"], zero_division=0))
 
     MODEL_PATH.parent.mkdir(exist_ok=True)
     joblib.dump(model, MODEL_PATH)
     joblib.dump(vectorizer, VECTORIZER_PATH)
-    print(f"Model saved to {MODEL_PATH}")
+    print(f"✅ Model successfully saved to {MODEL_PATH}\n")
 
 
 if __name__ == "__main__":

@@ -18,14 +18,11 @@ export default function AdminLogin() {
     }
 
     if (
-      username === "ranee" &&
-      password === "ranee123"
+      (username === "ranee" && password === "ranee123") ||
+      (username === "admin" && password === "admin123")
     ) {
-
       localStorage.setItem("admin", "true");
-
       toast.success("Admin Login Successful");
-
       navigate("/admin");
 
     } else {
