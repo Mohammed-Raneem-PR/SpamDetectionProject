@@ -224,6 +224,11 @@ MODEL_DIR = Path(__file__).resolve().parent.parent / "model"
 model = joblib.load(MODEL_DIR / "spam_model.pkl")
 vectorizer = joblib.load(MODEL_DIR / "vectorizer.pkl")
 
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if not FRONTEND_DIST.exists():
+    FRONTEND_DIST = Path(__file__).resolve().parent / "dist"
+
+
 
 def preprocess_image_for_ocr(img):
     """Preprocess image to increase OCR accuracy and reduce character noise."""
@@ -399,8 +404,15 @@ class Login(BaseModel):
     username: str
     password: str
 
+@app.get("/health")
+def health():
+    return {"status": "ok", "message": "Spam Detection API is running!"}
+
 @app.get("/")
 def home():
+    if FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
+        from fastapi.responses import FileResponse
+        return FileResponse(FRONTEND_DIST / "index.html")
     return {"message": "Spam Detection API is running!"}
 @app.post("/register")
 def register(data: User):
@@ -786,10 +798,6 @@ def delete_review(review_id: int):
 # -----------------------------
 # Serve Built Frontend (Single-Service Deployment)
 # -----------------------------
-FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
-if not FRONTEND_DIST.exists():
-    FRONTEND_DIST = Path(__file__).resolve().parent / "dist"
-
 if FRONTEND_DIST.exists():
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
