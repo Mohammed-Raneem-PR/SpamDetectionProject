@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: spam-detection-api
+    name: spam-detection-app
     runtime: docker
     # Render's free web service tier. Its filesystem is ephemeral, so SQLite
     # data is reset whenever Render restarts or redeploys this service.
