@@ -155,24 +155,47 @@ def create_users_table():
 
 
 def ensure_demo_user():
-    """Create a predictable user account for demonstrations if it is absent."""
+    """Create predictable user accounts and demo tweets for demonstrations."""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-    cursor.execute(
+
+    seed_users = [
+        ("Demo User", "demo_user", "demo.user@example.com", "demo123", "9999999999", "Bangalore"),
+        ("Demo Account", "demo_123", "demo@123.com", "demo@123", "9876543210", "Bangalore"),
+        ("John Doe", "John", "user@gmail.com", "78931399", "9876543211", "New York"),
+        ("Joe", "Joe", "ranee@gmail.com", "123123", "9876543212", "London"),
+        ("Raneem", "ran", "raneem@gmail.com", "123", "9876543213", "Bangalore"),
+    ]
+
+    cursor.executemany(
         """
         INSERT OR IGNORE INTO users
         (full_name, username, email, password, phone, city)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (
-            "Demo User",
-            "demo_user",
-            "demo.user@example.com",
-            "demo123",
-            "9999999999",
-            "Demo City",
-        ),
+        seed_users,
     )
+
+    # Also seed initial demo tweets if table is empty
+    count = cursor.execute("SELECT COUNT(*) FROM tweets").fetchone()[0]
+    if count == 0:
+        seed_tweets = [
+            ("Campus AI Symposium 2026", "Excited to invite all computer science scholars to our seminar on machine learning robustness tomorrow morning!", "Bangalore", "Ham", 99.2, 1),
+            ("Robotics Challenge Registration", "Annual Inter-College Robotics Challenge registration is now open. Register here: https://docs.google.com/forms/d/e/robotics", "Bangalore", "Ham", 98.7, 1),
+            ("Exclusive Crypto Giveaway", "URGENT: Claim free 2.5 ETH giveaway immediately! Connect your wallet at bit.ly/claim-crypto-free", "New York", "Spam", 99.8, 1),
+            ("Department Hackathon", "Join our 24-hour coding sprint this weekend at the main campus lab. Free entry and food!", "London", "Ham", 97.5, 1),
+            ("Lottery Prize Notification", "Congratulations! You have won $500,000 in European Lottery. Send processing fee via Western Union.", "Tokyo", "Spam", 99.1, 1),
+            ("Coffee & Code Meetup", "Great weather in Indiranagar today. Anyone up for a coffee and discussing transformer models?", "Bangalore", "Ham", 100.0, 1),
+        ]
+        cursor.executemany(
+            """
+            INSERT INTO tweets
+            (title, tweet, city, prediction, confidence, owner_user_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            seed_tweets,
+        )
+
     conn.commit()
     conn.close()
 def register_user(
