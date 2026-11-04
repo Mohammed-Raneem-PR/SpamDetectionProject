@@ -327,6 +327,99 @@ def evaluate_image_context(text: str):
     return matches, has_scam_signal
 
 
+CONTEXT_SIGNAL_LABELS = {
+    "public_authority": "public authority terms",
+    "education_institution": "education institution terms",
+    "official_programme": "programme or event terms",
+    "competitions_and_cultural": "competition or cultural event terms",
+    "event_details": "event details",
+    "event_management_and_rules": "event rules or management details",
+    "career_academics": "academic or career terms",
+    "trusted_official_link": "a domain or platform on the configured allowlist",
+}
+
+
+def explain_model_decision(text: str, prediction: str, signals, override: bool = False):
+    """Summarize strongest readable word-feature contributions from the SVM ensemble."""
+    explanation = {"summary": "", "factors": [], "adjustment": None}
+    try:
+        features = vectorizer.transform([text])
+        names = vectorizer.get_feature_names_out()
+        coefficient_rows = []
+
+        for calibrated in getattr(model, "calibrated_classifiers_", []):
+            estimator = getattr(calibrated, "estimator", None)
+            if estimator is None:
+                estimator = getattr(calibrated, "base_estimator", None)
+            coefficients = getattr(estimator, "coef_", None)
+            classes = getattr(estimator, "classes_", [])
+            if coefficients is None or not len(coefficients):
+                continue
+            weights = coefficients[0]
+            # Binary LinearSVC scores point toward the second class in classes_.
+            if len(classes) == 2 and classes[1] != 1:
+                weights = -weights
+            coefficient_rows.append(weights)
+
+        if coefficient_rows:
+            weights = sum(coefficient_rows) / len(coefficient_rows)
+            contributions = {}
+            for index, value in zip(features.indices, features.data):
+                feature_name = names[index]
+                if not feature_name.startswith("word__"):
+                    continue
+                term = feature_name.removeprefix("word__").replace("_", " ").strip()
+                if re.search(r"[a-zA-Z0-9]", term):
+                    contributions[term] = contributions.get(term, 0.0) + float(value * weights[index])
+
+            spam_terms = sorted(
+                ((term, score) for term, score in contributions.items() if score > 0),
+                key=lambda item: item[1], reverse=True
+            )[:3]
+            ham_terms = sorted(
+                ((term, score) for term, score in contributions.items() if score < 0),
+                key=lambda item: item[1]
+            )[:3]
+            explanation["factors"] = (
+                [{"term": term, "direction": "spam"} for term, _ in spam_terms]
+                + [{"term": term, "direction": "ham"} for term, _ in ham_terms]
+            )
+
+        if override:
+            matched_context = [CONTEXT_SIGNAL_LABELS.get(signal, signal.replace("_", " ")) for signal in signals]
+            explanation["summary"] = (
+                "The text model initially leaned Spam, but the app changed the result to Ham "
+                "because it matched these contextual rules: " + ", ".join(matched_context) + "."
+            )
+            explanation["adjustment"] = "Context safeguards changed the model label from Spam to Ham."
+        elif explanation["factors"]:
+            direction = prediction.lower()
+            supporting = [factor["term"] for factor in explanation["factors"] if factor["direction"] == direction]
+            opposing = [factor["term"] for factor in explanation["factors"] if factor["direction"] != direction]
+            if supporting:
+                explanation["summary"] = (
+                    f"The model leaned {prediction}; these learned word patterns contributed most in that direction: "
+                    + ", ".join(supporting[:3]) + "."
+                )
+                if opposing:
+                    explanation["summary"] += " Other patterns pulled toward the opposite label: " + ", ".join(opposing[:2]) + "."
+            else:
+                explanation["summary"] = (
+                    f"The model leaned {prediction}, although its strongest readable word features pulled the other way. "
+                    "The score reflects the combined model features, including character patterns."
+                )
+        else:
+            explanation["summary"] = (
+                "The model returned a label, but this message had no readable word features to summarize. "
+                "Very short text or unusual wording can make the result less reliable."
+            )
+    except Exception:
+        # Explanations are optional; never let them prevent classification.
+        explanation["summary"] = "The model returned a prediction, but a feature-level explanation was unavailable."
+
+    return explanation
+
+
 def institutional_context(text: str):
     """Backward-compatible alias for evaluate_image_context."""
     return evaluate_image_context(text)
@@ -369,11 +462,14 @@ def classify_content_with_safeguards(text: str, is_ocr: bool = False):
         base_boost = 92.0 if ("trusted_official_link" in signals or len(signals) >= 3) else 88.0
         confidence = round(max(confidence, min(98.8, base_boost + text_variance)), 2)
 
+    explanation = explain_model_decision(target_text, label, signals, override)
+
     return {
         "prediction": label,
         "confidence": confidence,
         "signals": signals,
         "override": override,
+        "explanation": explanation,
         "cleaned_text": clean_text
     }
 
@@ -486,7 +582,8 @@ def predict(data: DetectMessage):
 
     return {
         "prediction": label,
-        "confidence": confidence
+        "confidence": confidence,
+        "explanation": result["explanation"]
     }
 
 
@@ -599,7 +696,8 @@ async def predict_file(file: UploadFile = File(...)):
         results.append({
             "message": message,
             "prediction": label,
-            "confidence": confidence
+            "confidence": confidence,
+            "explanation": res["explanation"]
         })
 
     return {
@@ -662,7 +760,8 @@ async def predict_image(file: UploadFile = File(...)):
         "extracted_text": extracted_text,
         "source": "image",
         "institutional_signals": res["signals"],
-        "institutional_override": res["override"]
+        "institutional_override": res["override"],
+        "explanation": res["explanation"]
     }
 @app.get("/dashboard")
 def dashboard(user_id: Optional[int] = Query(default=None, gt=0)):

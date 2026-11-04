@@ -577,28 +577,49 @@ export default function DetectSpam() {
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-2">
                   <div className="font-bold text-slate-800 flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>AI Reasoning & Assessment:</span>
+                    <span>Why this result:</span>
                   </div>
                   <p className="text-slate-600 leading-relaxed">
-                    {result.reason ||
-                      (result.prediction === "Spam"
-                        ? "This message exhibits strong promotional, urgent financial, or scam vocabulary flagged by the social network spam model."
-                        : "This message matches natural conversational vocabulary or verified institutional / educational context.")}
+                    {result.explanation?.summary ||
+                      "A detailed explanation is unavailable for this result. The label comes from the trained spam classifier."}
                   </p>
 
+                  {result.explanation?.factors?.length > 0 && (
+                    <div className="pt-2">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        Learned text patterns
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {result.explanation.factors.map((factor, i) => (
+                          <span
+                            key={`${factor.term}-${i}`}
+                            className={`px-2 py-1 rounded-md text-[10px] font-semibold border ${
+                              factor.direction === "spam"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-sky-50 text-sky-700 border-sky-200"
+                            }`}
+                          >
+                            {factor.direction === "spam" ? "Spam signal · " : "Ham signal · "}{factor.term}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-slate-400">These are influential model patterns, not proof that the message is harmful or safe.</p>
+                    </div>
+                  )}
+
                   {/* Context Signals / Safeguard Override Indicator */}
-                  {result.context_signals && result.context_signals.length > 0 && (
+                  {(result.context_signals || result.institutional_signals || []).length > 0 && (
                     <div className="pt-2 border-t border-slate-200/60">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                        Matched Institutional Signals:
+                        Context rules matched:
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {result.context_signals.map((sig, i) => (
+                        {(result.context_signals || result.institutional_signals).map((sig, i) => (
                           <span
                             key={i}
                             className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
                           >
-                            ✓ {sig}
+                            ✓ {sig.replaceAll("_", " ")}
                           </span>
                         ))}
                       </div>
