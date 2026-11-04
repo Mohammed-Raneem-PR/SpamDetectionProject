@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bot, X, Send, Sparkles, ShieldCheck, Clock3, MessageCircle } from "lucide-react";
+import "./HelpDeskBot.css";
 
 const quickQuestions = [
   "How do I scan a message?",
@@ -36,7 +37,7 @@ export default function HelpDeskBot() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState([
-    { from: "bot", text: "Hi! I’m Nova, your SpamGuard help desk assistant. What can I help you with?" },
+    { from: "bot", text: "Hi! I’m Rene, your SpamGuard help desk assistant. What can I help you with?" },
   ]);
   const send = (question) => {
     const cleanQuestion = question.trim();
@@ -49,17 +50,17 @@ export default function HelpDeskBot() {
   return (
     <>
       {open && (
-        <section className="fixed bottom-24 right-4 sm:right-6 z-50 flex h-[min(600px,calc(100dvh-8rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-2xl shadow-indigo-950/20" aria-label="Nova help desk chat">
+        <section className="helpdesk-panel fixed bottom-24 right-4 sm:right-6 z-50 flex h-[min(600px,calc(100dvh-8rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-2xl shadow-indigo-950/20" aria-label="Rene help desk chat">
           <header className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 px-5 py-4 text-white">
             <div className="absolute -right-5 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-inner">
-                  <Bot className="h-6 w-6" />
+                <div className="rene-avatar relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/15 shadow-inner">
+                  <Bot className="rene-bot-icon h-6 w-6" />
                   <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-indigo-900 bg-emerald-400" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5 text-sm font-bold">Nova <Sparkles className="h-3.5 w-3.5 text-amber-300" /></div>
+                  <div className="flex items-center gap-1.5 text-sm font-bold">Rene <Sparkles className="h-3.5 w-3.5 text-amber-300" /></div>
                   <p className="mt-0.5 flex items-center gap-1 text-[11px] text-indigo-100"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Help desk · Usually replies instantly</p>
                 </div>
               </div>
@@ -86,17 +87,17 @@ export default function HelpDeskBot() {
           </div>
 
           <form onSubmit={(event) => { event.preventDefault(); send(draft); }} className="flex items-center gap-2 border-t border-slate-100 bg-white p-3">
-            <label htmlFor="nova-message" className="sr-only">Message Nova</label>
-            <input id="nova-message" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask how to use SpamGuard…" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:outline-none" />
+            <label htmlFor="rene-message" className="sr-only">Message Rene</label>
+            <input id="rene-message" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask how to use SpamGuard…" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:outline-none" />
             <button type="submit" disabled={!draft.trim()} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"><Send className="h-4 w-4" /></button>
           </form>
-          <div className="bg-white pb-2 text-center text-[9px] text-slate-400">Nova answers product questions and doesn’t analyze message content.</div>
+          <div className="bg-white pb-2 text-center text-[9px] text-slate-400">Rene answers product questions and doesn’t analyze message content.</div>
         </section>
       )}
 
-      <button onClick={() => setOpen((current) => !current)} aria-label={open ? "Close help desk" : "Open Nova help desk"} aria-expanded={open} className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-indigo-700 py-2.5 pl-2.5 pr-4 text-white shadow-xl shadow-indigo-950/25 ring-4 ring-white/80 transition hover:-translate-y-0.5 hover:bg-indigo-800 sm:bottom-6 sm:right-6">
-        <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15"><Bot className="h-5 w-5" /><span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-indigo-700 bg-emerald-400" /></span>
-        <span className="text-left"><span className="block text-xs font-bold leading-tight">Ask Nova</span><span className="block text-[10px] text-indigo-100">Help desk</span></span>
+      <button onClick={() => setOpen((current) => !current)} aria-label={open ? "Close help desk" : "Open Rene help desk"} aria-expanded={open} className="rene-launcher fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-indigo-700 py-2.5 pl-2.5 pr-4 text-white shadow-xl shadow-indigo-950/25 ring-4 ring-white/80 transition hover:-translate-y-0.5 hover:bg-indigo-800 sm:bottom-6 sm:right-6">
+        <span className="rene-avatar relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15"><Bot className="rene-bot-icon h-5 w-5" /><span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-indigo-700 bg-emerald-400" /></span>
+        <span className="text-left"><span className="block text-xs font-bold leading-tight">Ask Rene</span><span className="block text-[10px] text-indigo-100">Help desk</span></span>
         <MessageCircle className="ml-1 h-4 w-4 text-indigo-200" />
       </button>
     </>
