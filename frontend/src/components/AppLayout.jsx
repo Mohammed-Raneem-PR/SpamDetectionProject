@@ -1,5 +1,6 @@
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import HelpDeskBot from "./HelpDeskBot";
 
 export default function AppLayout({ children, title, subtitle, actions }) {
   return (
@@ -17,6 +18,7 @@ export default function AppLayout({ children, title, subtitle, actions }) {
           {children}
         </main>
       </div>
+      <HelpDeskBot />
     </div>
   );
 }
