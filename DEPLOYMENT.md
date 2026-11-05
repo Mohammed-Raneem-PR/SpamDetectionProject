@@ -17,9 +17,9 @@ the backend would need to be migrated from SQLite to a hosted database.
 1. Sign in to Render and connect your GitHub account.
 2. Select **New > Blueprint** and choose this repository and the `main` branch.
 3. Render reads `render.yaml` from the repository root.
-4. Provide the required values:
-   - `GMAIL_EMAIL`
-   - `GMAIL_PASSWORD` (a newly generated Gmail App Password)
+4. In Resend, create an API key and verify a domain you control. Then provide:
+   - `RESEND_API_KEY` (your Resend API key)
+   - `EMAIL_FROM` (for example, `Spam Detection <noreply@mail.example.com>` using that verified domain)
    - `ALLOWED_ORIGINS` (your Vercel URL, such as `https://your-app.vercel.app`)
 5. Deploy and copy the resulting `https://…onrender.com` API URL. The first
    request after the free service sleeps can take a little longer to respond.
@@ -37,5 +37,5 @@ value at build time.
 ## Security note
 
 The previous Gmail app password was committed before deployment preparation.
-Revoke it in the Google Account security settings and create a new App Password
-before setting `GMAIL_PASSWORD` in Render. Do not commit real `.env` files.
+Revoke it in Google Account security settings. Do not commit real `.env` files
+or provider API keys.

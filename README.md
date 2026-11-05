@@ -54,7 +54,7 @@ Linear Support Vector Machine (SVM). It returns either **Spam** or **Ham**
 | Machine learning | scikit-learn, TF-IDF, LinearSVC, CalibratedClassifierCV, joblib |
 | Image processing | Pillow, pytesseract, Tesseract OCR |
 | Database | SQLite |
-| Email | Gmail SMTP with a Gmail App Password |
+| Email | Resend email API |
 | Deployment | Docker, Render, Vercel |
 
 ## Methodology
@@ -268,20 +268,21 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `backend/.env` and supply Gmail credentials if you want real OTP email:
+Edit `backend/.env` and supply Resend credentials if you want real OTP email.
+Create a Resend API key and verify the sender domain in your Resend account first:
 
 ```dotenv
-GMAIL_EMAIL=your-gmail-address@example.com
-GMAIL_PASSWORD=your-16-character-gmail-app-password
+RESEND_API_KEY=re_your_resend_api_key
+EMAIL_FROM=Spam Detection <noreply@your-verified-domain.com>
 
 # Optional local settings
 ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 # DATABASE_PATH=/absolute/path/to/spam_detection.db
 ```
 
-`GMAIL_PASSWORD` must be a Gmail **App Password**, not the normal Google
-account password. If these variables are absent, the backend logs the demo OTP
-to its console instead of sending an email.
+`EMAIL_FROM` must use a sender address on a domain verified with Resend. If
+these variables are absent or email delivery fails, the backend logs the demo
+OTP to its console instead of sending an email.
 
 Start the API:
 
@@ -490,8 +491,8 @@ The frontend can be deployed independently to Vercel.
 
    | Variable | Value |
    | --- | --- |
-   | `GMAIL_EMAIL` | Gmail address used to send verification codes |
-   | `GMAIL_PASSWORD` | Newly generated Gmail App Password |
+   | `RESEND_API_KEY` | API key from your Resend account |
+   | `EMAIL_FROM` | Sender using your Resend-verified domain |
    | `ALLOWED_ORIGINS` | Your Vercel URL, e.g. `https://your-app.vercel.app` |
    | `DATABASE_PATH` | Already set by the Blueprint to `/tmp/spam_detection.db` |
 

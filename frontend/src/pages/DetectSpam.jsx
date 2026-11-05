@@ -173,7 +173,7 @@ export default function DetectSpam() {
 
   return (
     <AppLayout
-      title="Spam & Phishing Detection Console"
+      title="Spam Detection Console"
       subtitle="Multi-modal content analysis with calibrated Linear SVM (98.34% accuracy) and contextual safeguards"
       actions={
         <div className="flex items-center gap-2">

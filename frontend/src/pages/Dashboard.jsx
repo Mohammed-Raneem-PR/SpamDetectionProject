@@ -289,7 +289,7 @@ export default function Dashboard() {
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>Instant Message Pre-Check</span>
               </div>
-              <h4 className="text-lg font-bold text-white tracking-tight">Test any message for phishing or spam</h4>
+              <h4 className="text-lg font-bold text-white tracking-tight">Test any message for spam</h4>
               <p className="text-xs text-slate-300 mt-1 mb-4">
                 Paste a link, comment, or flyer text below to test against our calibrated Linear SVM model.
               </p>

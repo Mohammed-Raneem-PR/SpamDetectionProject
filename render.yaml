@@ -11,9 +11,9 @@ services:
     envVars:
       - key: DATABASE_PATH
         value: /tmp/spam_detection.db
-      - key: GMAIL_EMAIL
+      - key: RESEND_API_KEY
         sync: false
-      - key: GMAIL_PASSWORD
+      - key: EMAIL_FROM
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false

@@ -8,9 +8,9 @@ from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 import random
 import time
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import json
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from fastapi import Body
 from database import get_connection
 
@@ -46,7 +46,7 @@ except ImportError:
 
 
 from database import (
-    
+
     create_database,
     save_tweet,
     get_all_tweets,
@@ -69,22 +69,17 @@ app = FastAPI(title="Spam Detection API")
 otp_store = {}  # Format: {email: {"otp": "123456", "expires": timestamp}}
 verified_emails = set()  # Track verified email addresses
 
-# Email credentials are configured in the deployment environment, never in Git.
-GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
-GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD", "")
+# Resend credentials are configured in the deployment environment, never in Git.
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "")
 
 def send_otp_email(email: str, otp: str) -> bool:
-    """Send OTP to email via Gmail"""
-    if not GMAIL_EMAIL or not GMAIL_PASSWORD:
-        print("Email is not configured. Set GMAIL_EMAIL and GMAIL_PASSWORD.")
+    """Send an OTP using Resend's HTTPS API (no SMTP ports required)."""
+    if not RESEND_API_KEY or not EMAIL_FROM:
+        print("Email is not configured. Set RESEND_API_KEY and EMAIL_FROM.")
         return False
     try:
-        msg = MIMEMultipart()
-        msg["From"] = GMAIL_EMAIL
-        msg["To"] = email
-        msg["Subject"] = "Your OTP Verification Code"
-        
-        body = f"""
+        html = f"""
         <html>
             <body style="font-family: Arial; text-align: center;">
                 <h2 style="color: #333;">OTP Verification</h2>
@@ -96,16 +91,36 @@ def send_otp_email(email: str, otp: str) -> bool:
             </body>
         </html>
         """
-        
-        msg.attach(MIMEText(body, "html"))
-        
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
-            server.login(GMAIL_EMAIL, GMAIL_PASSWORD)
-            server.sendmail(GMAIL_EMAIL, email, msg.as_string())
-        
+        payload = json.dumps({
+            "from": EMAIL_FROM,
+            "to": [email],
+            "subject": "Your OTP Verification Code",
+            "html": html,
+            "text": f"Your OTP verification code is {otp}. This code expires in 5 minutes.",
+        }).encode("utf-8")
+        request = Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urlopen(request, timeout=15) as response:
+            if not 200 <= response.status < 300:
+                print(f"Email provider returned HTTP {response.status}.")
+                return False
         return True
+    except HTTPError as e:
+        # Do not log provider response bodies; they can contain recipient data.
+        print(f"Email provider returned HTTP {e.code}.")
+        return False
+    except (URLError, TimeoutError, OSError) as e:
+        print(f"Email delivery request failed: {type(e).__name__}.")
+        return False
     except Exception as e:
-        print(f"❌ Email Error: {e}")
+        print(f"Email delivery failed: {type(e).__name__}.")
         return False
 
 
@@ -128,8 +143,9 @@ class UpdateProfile(BaseModel):
     phone: str
     city: str
 
+
 @app.post("/send-otp")
-def send_otp(data: OTPRequest, background_tasks: BackgroundTasks):
+def send_otp(data: OTPRequest):
     now = time.time()
     previous_otp = otp_store.get(data.email)
     if previous_otp:
@@ -154,12 +170,25 @@ def send_otp(data: OTPRequest, background_tasks: BackgroundTasks):
     if data.email in verified_emails:
         verified_emails.discard(data.email)
     
-    background_tasks.add_task(deliver_otp_email, data.email, otp)
-    return {
-        "message": "OTP is being sent to your email.",
-        "expires_in_seconds": 300,
-        "resend_available_in_seconds": 30
-    }
+    email_sent = send_otp_email(data.email, otp)
+
+    if email_sent:
+        print(f"\n✅ OTP Sent Successfully via Resend\nEmail: {data.email}\nExpires in: 5 minutes\n")
+        return {
+            "message": "OTP has been sent to your email inbox.",
+            "expires_in_seconds": 300,
+            "resend_available_in_seconds": 30,
+            "email_delivered": True,
+        }
+    else:
+        print(f"\n⚠️  Email failed - Using console/demo fallback\nDemo OTP: {otp}\nEmail: {data.email}\n")
+        return {
+            "message": f"Email delivery failed. Demo OTP code: {otp}",
+            "expires_in_seconds": 300,
+            "resend_available_in_seconds": 30,
+            "email_delivered": False,
+            "demo_otp": otp,
+        }
 class VerifyOTP(BaseModel):
     email: str
     otp: str
